@@ -49,6 +49,7 @@ import FileModal from "./filemodal";
 import AnnotatorSettings from "./utils/annotatorsettings";
 import FormatTimerSeconds from "./utils/timer";
 import { RegisteredModel } from "./model";
+import VideoGraph from "./videograph/videograph";
 
 type Point = [number, number];
 type MapType = L.DrawMap;
@@ -78,6 +79,34 @@ function Coordinate(x: number, y: number): Point {
 }
 
 type UIState = null | "Predicting";
+
+interface DataTag {
+  id: number;
+  name: string;
+}
+
+export interface FrameData {
+  bound: [Point, Point, Point, Point];
+  boundType: "rectangle";
+  confidence: number;
+  tag: DataTag;
+  annotationID: string;
+}
+
+interface ImageData extends FrameData {
+  type: "image";
+}
+
+export interface VideoData {
+  type: "video";
+  fps: number;
+  frames: { [frameNumber: number]: Array<FrameData> };
+}
+
+export interface AnalyticsData {
+  type: string;
+  data: ImageData | VideoData;
+}
 
 interface AnnotatorProps {
   project: string;
@@ -148,6 +177,8 @@ interface AnnotatorState {
     opacity: number;
   };
   currAnnotationPlaybackId: number;
+  isAnalyticsBarOpen: boolean;
+  analyticsData: AnalyticsData | null;
 }
 
 /**
@@ -246,6 +277,8 @@ export default class Annotator extends Component<
         },
       },
       currAnnotationPlaybackId: 0,
+      isAnalyticsBarOpen: false,
+      analyticsData: null,
     };
 
     this.toaster = new Toaster({}, {});
@@ -762,8 +795,15 @@ export default class Annotator extends Component<
         "json"
       )
         .then(response => {
-          if (this.currentAsset.url === asset.url && singleAnalysis)
+          if (this.currentAsset.url === asset.url && singleAnalysis) {
+            this.setState({
+              analyticsData: {
+                type: asset.type,
+                data: response.data,
+              },
+            });
             this.updateAnnotations(response.data);
+          }
         })
         .catch(error => {
           let message = "Failed to predict image.";
@@ -809,6 +849,12 @@ export default class Annotator extends Component<
               ).toString();
 
               if (response.data.frames[key]) {
+                this.setState({
+                  analyticsData: {
+                    type: asset.type,
+                    data: response.data,
+                  },
+                });
                 this.updateAnnotations(response.data.frames[key]);
               }
 
@@ -1170,6 +1216,8 @@ export default class Annotator extends Component<
     console.log("asset", asset.url);
     console.log("currentasset", this.currentAsset.url);
     console.log("single analysis", singleAnalysis);
+    // When an asset is reselected, reset analyticsData
+    this.setState({ analyticsData: null });
 
     const currentVideoElement = this.videoOverlay.getElement();
     if (!isAssetReselection) {
@@ -1545,6 +1593,39 @@ export default class Annotator extends Component<
       this.isAssetVisible()
     );
 
+    const fastForward = (frame: number) => {
+      const videoElement = this.videoOverlay?.getElement();
+      if (videoElement) {
+        videoElement.currentTime = frame / 1000;
+        videoElement.pause();
+      }
+    };
+
+    let bottomBar;
+    if (this.state.isAnalyticsBarOpen && this.state.analyticsData) {
+      bottomBar = (
+        <VideoGraph
+          analyticsData={this.state.analyticsData}
+          confidenceThreshold={this.state.confidence}
+          fastForward={fastForward}
+        />
+      );
+    } else if (this.state.isAnalyticsBarOpen && !this.state.analyticsData) {
+      bottomBar = <p>No data, please analyse the image first</p>;
+    } else {
+      bottomBar = (
+        <ImageBar
+          ref={ref => {
+            this.imagebarRef = ref;
+          }}
+          /* Only visible assets should be shown */
+          assetList={visibleAssets}
+          callbacks={{ selectAssetCallback: this.selectAsset }}
+          {...this.props}
+        />
+      );
+    }
+
     return (
       <div>
         <Toaster {...this.state} ref={this.refHandlers.toaster} />
@@ -1574,15 +1655,7 @@ export default class Annotator extends Component<
               className={[isCollapsed, "image-bar"].join("")}
               id={"image-bar"}
             >
-              <ImageBar
-                ref={ref => {
-                  this.imagebarRef = ref;
-                }}
-                /* Only visible assets should be shown */
-                assetList={visibleAssets}
-                callbacks={{ selectAssetCallback: this.selectAsset }}
-                {...this.props}
-              />
+              {bottomBar}
             </Card>
           </div>
 
@@ -1613,15 +1686,30 @@ export default class Annotator extends Component<
             <Card className={"main-annotator"}>
               <div id="annotation-map" className={"style-annotator"} />
               {this.backgroundImg ? (
-                <div className="annotator-settings-button">
-                  <AnnotatorSettings
-                    annotationOptions={this.state.annotationOptions}
-                    callbacks={{
-                      setAnnotatedAssetsHidden: this.setAnnotatedAssetsHidden,
-                      setAnnotationOptions: this.setAnnotationOptions,
-                    }}
-                  />
-                </div>
+                <>
+                  <div className="annotator-settings-button">
+                    <AnnotatorSettings
+                      annotationOptions={this.state.annotationOptions}
+                      callbacks={{
+                        setAnnotatedAssetsHidden: this.setAnnotatedAssetsHidden,
+                        setAnnotationOptions: this.setAnnotationOptions,
+                      }}
+                    />
+                  </div>
+                  <div className="annotator-videograph-button">
+                    <Button
+                      icon="timeline-line-chart"
+                      onClick={
+                        () =>
+                          this.setState({
+                            // eslint-disable-next-line react/no-access-state-in-setstate
+                            isAnalyticsBarOpen: !this.state.isAnalyticsBarOpen,
+                          })
+                        // eslint-disable-next-line react/jsx-curly-newline
+                      }
+                    />
+                  </div>
+                </>
               ) : null}
             </Card>
           </div>
