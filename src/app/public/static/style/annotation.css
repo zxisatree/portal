@@ -271,7 +271,7 @@
   margin-right: 30px !important;
 }
 
-.annotator-videograph-button {
+.annotator-graph-button {
   position: absolute;
   z-index: 100;
   float: right;
@@ -406,4 +406,8 @@
 
 :focus:not(button, input) {
   outline: none !important;
+}
+
+.apexcharts-tooltip {
+  color: black;
 }

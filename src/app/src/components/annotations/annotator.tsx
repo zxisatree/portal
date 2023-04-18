@@ -1593,10 +1593,10 @@ export default class Annotator extends Component<
       this.isAssetVisible()
     );
 
-    const fastForward = (frame: number) => {
+    const goToVideoTime = (seconds: number) => {
       const videoElement = this.videoOverlay?.getElement();
       if (videoElement) {
-        videoElement.currentTime = frame / 1000;
+        videoElement.currentTime = seconds;
         videoElement.pause();
       }
     };
@@ -1607,7 +1607,7 @@ export default class Annotator extends Component<
         <VideoGraph
           analyticsData={this.state.analyticsData}
           confidenceThreshold={this.state.confidence}
-          fastForward={fastForward}
+          goToVideoTime={goToVideoTime}
         />
       );
     } else if (this.state.isAnalyticsBarOpen && !this.state.analyticsData) {
@@ -1696,7 +1696,7 @@ export default class Annotator extends Component<
                       }}
                     />
                   </div>
-                  <div className="annotator-videograph-button">
+                  <div className="annotator-graph-button">
                     <Button
                       icon="timeline-line-chart"
                       onClick={

@@ -1,12 +1,12 @@
 /* eslint-disable no-restricted-syntax */
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ReactApexChart from "react-apexcharts";
-import { AnalyticsData, FrameData, VideoData } from "../annotator";
+import { AnalyticsData, VideoData } from "../annotator";
 
 interface AnalyticsBarProps {
   analyticsData: AnalyticsData;
   confidenceThreshold: number;
-  fastForward: (frame: number) => void;
+  goToVideoTime: (frame: number) => void;
 }
 
 interface VideoObjects {
@@ -16,6 +16,7 @@ interface VideoObjects {
 interface SeriesData {
   x: string;
   y: Array<any>;
+  fillColor?: string;
 }
 
 interface SingleSeries {
@@ -24,168 +25,56 @@ interface SingleSeries {
 
 type Series = Array<SingleSeries>;
 
-interface ObjectFrameData extends FrameData {
-  frameNumber: string;
+function frameToSeconds(frameNumber: string): number {
+  return parseInt(frameNumber, 10) / 1000;
 }
 
-function timestampToSeconds(timestamp: string): number {
-  return parseInt(timestamp, 10) / 10000;
+function fillColourFromName(name: string): string {
+  return `#${(
+    name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 255
+  )
+    .toString(16)
+    .padEnd(3, "0")}`;
 }
 
-const VideoGraph = ({
-  analyticsData,
-  confidenceThreshold,
-  fastForward,
-}: AnalyticsBarProps): JSX.Element => {
-  console.log("analyticsData");
-  console.log(analyticsData);
-
-  const videoData: VideoData = analyticsData.data as VideoData;
-  const videoFramesData: Array<ObjectFrameData> = Object.entries(
-    videoData.frames
-  ).flatMap(([frameNumber, data]) =>
-    data.map(frameData => ({ ...frameData, frameNumber }))
-  );
-
-  /** Loop over each frame array. Since the number of unique objects is likely to be small,
-      we just need the unique list of unique objects at that point in time.
-      Also, check if the unique object is in the time object and add it to the time object with a value of null if it is not present.
-      The time object keeps track of the time that an object was started being seen.
-      Then, check the time object. For every key in the time object, if the value is null and the object is in the current frame,
-      set the value to the current frame number to indicate that the object was started to be seen here.
-      If the value is non null and the object is not in the current frame,
-      set the value to null and add the time data to the final result data array.
-   */
-
-  const seriesData: Array<SeriesData> = [];
-  const videoObjects: VideoObjects = {};
-  let currentFrameObjects: Array<string>;
-  const frameNumbers = Object.keys(videoData.frames);
-  const lastFrameNumber = frameNumbers[frameNumbers.length - 1];
-  // console.log(
-  //   "new array",
-  //   Object.entries(videoData.frames).concat([[lastFrameNumber + 1, []]])
-  // );
-  // const tempDebugObj = [Object.entries(videoData.frames)[0]];
-  for (const [frameNumber, frameData] of Object.entries(
-    videoData.frames
-  ).concat([[lastFrameNumber + 1, []]])) {
-    currentFrameObjects = [];
-    // console.log("frameData", frameData);
-    for (const objectData of frameData) {
-      if (
-        currentFrameObjects.indexOf(objectData.tag.name) === -1 &&
-        objectData.confidence >= confidenceThreshold
-      ) {
-        currentFrameObjects.push(objectData.tag.name);
-
-        if (typeof videoObjects[objectData.tag.name] !== "number") {
-          videoObjects[objectData.tag.name] = timestampToSeconds(frameNumber);
-        }
-      }
-    }
-    // console.log("Frame", frameNumber, ":", currentFrameObjects);
-    // console.log("videoObjects", videoObjects);
-
-    // Check each object in videoObjects, if they are not in currentFrameObjects, push to data array
-    for (const videoObjectName of Object.keys(videoObjects)) {
-      // console.log(
-      //   "typeof videoObjects[videoObjectName]",
-      //   typeof videoObjects[videoObjectName]
-      // );
-      // console.log(
-      //   currentFrameObjects,
-      //   ".includes",
-      //   videoObjectName,
-      //   ":",
-      //   currentFrameObjects.includes(videoObjectName)
-      // );
-      if (
-        typeof videoObjects[videoObjectName] === "number" &&
-        !currentFrameObjects.includes(videoObjectName)
-      ) {
-        seriesData.push({
-          x: videoObjectName,
-          y: [videoObjects[videoObjectName], timestampToSeconds(frameNumber)],
-        });
-        videoObjects[videoObjectName] = null;
-      } else if (typeof videoObjects[videoObjectName] !== "number") {
-        // console.log(
-        //   "Setting",
-        //   videoObjectName,
-        //   "to",
-        //   timestampToSeconds(frameNumber)
-        // );
-        videoObjects[videoObjectName] = timestampToSeconds(frameNumber);
-      }
-    }
-
-    // console.log("videoObjects", videoObjects);
-  }
-
-  // Each frame is an array of objects. Transform each object into an {x: obj.tag.name, y: timestampToSeconds(frameNumber)} object.
-  // Then push all those objects onto the data array
-  // const seriesData = Object.entries(videoData.frames).flatMap(
-  //   ([frameNumber, data]) =>
-  //     data.map(frameData => ({
-  //       x: frameData.tag.name,
-  //       y: timestampToSeconds(frameNumber),
-  //     }))
-  // );
-  console.log("seriesData");
-  console.log(seriesData);
-
-  const series: Series = [{ data: seriesData }];
-  // const series: ApexAxisChartSeries = [
-  //   {
-  //     data: [
-  //       {
-  //         x: "Code",
-  //         y: [
-  //           new Date("2019-03-02").getTime(),
-  //           new Date("2019-03-04").getTime(),
-  //         ],
-  //       },
-  //       {
-  //         x: "Code",
-  //         y: [
-  //           new Date("2019-03-06").getTime(),
-  //           new Date("2019-03-09").getTime(),
-  //         ],
-  //       },
-  //       {
-  //         x: "Test",
-  //         y: [
-  //           new Date("2019-03-04").getTime(),
-  //           new Date("2019-03-08").getTime(),
-  //         ],
-  //       },
-  //       {
-  //         x: "Validation",
-  //         y: [
-  //           new Date("2019-03-08").getTime(),
-  //           new Date("2019-03-12").getTime(),
-  //         ],
-  //       },
-  //       {
-  //         x: "Deployment",
-  //         y: [
-  //           new Date("2019-03-12").getTime(),
-  //           new Date("2019-03-18").getTime(),
-  //         ],
-  //       },
-  //     ],
-  //   },
-  // ];
-
-  const options: ApexCharts.ApexOptions = {
+function optionsGenerator(
+  goToVideoTime: (seconds: number) => void
+): ApexCharts.ApexOptions {
+  return {
+    chart: {
+      toolbar: {
+        tools: {
+          download: false,
+        },
+      },
+      events: {
+        dataPointSelection(e, chart, config) {
+          goToVideoTime(
+            config.w.config.series[0].data[config.dataPointIndex].y[0]
+          );
+        },
+      },
+    },
+    noData: {
+      text: "No objects found. Try lowering the confidence threshold.",
+      verticalAlign: "middle",
+      align: "center",
+      style: {
+        color: "white",
+        fontSize: "20",
+      },
+    },
+    tooltip: {
+      custom({ series: customSeries, seriesIndex, dataPointIndex, w }) {
+        return `<div style="padding: 5px;">${w.globals.seriesX[0][dataPointIndex]}: ${customSeries[0][dataPointIndex]}s</div>`;
+      },
+    },
     plotOptions: {
       bar: {
         horizontal: true,
       },
     },
     xaxis: {
-      // type: "datetime",
       labels: {
         style: {
           colors: "white",
@@ -200,6 +89,114 @@ const VideoGraph = ({
       },
     },
   };
+}
+
+const debounce = (
+  func: () => void,
+  timer: NodeJS.Timeout | null,
+  setTimer: React.Dispatch<React.SetStateAction<NodeJS.Timeout | null>>
+) => {
+  return () => {
+    if (timer) clearTimeout(timer);
+    setTimer(
+      setTimeout(() => {
+        func();
+      }, 300)
+    );
+  };
+};
+
+const VideoGraph = ({
+  analyticsData,
+  confidenceThreshold,
+  goToVideoTime,
+}: AnalyticsBarProps): JSX.Element => {
+  const videoData: VideoData = analyticsData.data as VideoData;
+  const minimumBarSeconds = 0.5;
+  const intervalSize = videoData.fps * 0.2; // minimum interval size to group frames together
+  const [
+    debouncedConfidenceThreshold,
+    setDebouncedConfidenceThreshold,
+  ] = useState(confidenceThreshold);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
+
+  useEffect(() => {
+    debounce(
+      () => {
+        setDebouncedConfidenceThreshold(confidenceThreshold);
+      },
+      debounceTimer,
+      setDebounceTimer
+    )();
+  }, [confidenceThreshold]);
+
+  const seriesData: Array<SeriesData> = useMemo(() => {
+    const seriesDataIntermediate: Array<SeriesData> = [];
+    const videoObjects: VideoObjects = {};
+    const frameNumbers = Object.keys(videoData.frames);
+    const lastFrameNumber = Number(frameNumbers[frameNumbers.length - 1]);
+    let currentFrameObjects: Array<string>;
+    const videoFrameData = Object.entries(videoData.frames).concat([
+      [(lastFrameNumber + intervalSize).toString(), []],
+    ]);
+
+    for (const [frameNumber, frameData] of videoFrameData) {
+      currentFrameObjects = [];
+      const frameInSeconds = frameToSeconds(frameNumber);
+      for (const objectData of frameData) {
+        if (
+          currentFrameObjects.indexOf(objectData.tag.name) === -1 &&
+          objectData.confidence >= confidenceThreshold
+        ) {
+          currentFrameObjects.push(objectData.tag.name);
+
+          if (typeof videoObjects[objectData.tag.name] !== "number") {
+            videoObjects[objectData.tag.name] = frameInSeconds;
+          }
+        }
+      }
+
+      for (const videoObjectName of Object.keys(videoObjects)) {
+        if (
+          typeof videoObjects[videoObjectName] === "number" &&
+          !currentFrameObjects.includes(videoObjectName)
+        ) {
+          seriesDataIntermediate.push({
+            x: videoObjectName,
+            y: [videoObjects[videoObjectName], frameInSeconds],
+            fillColor: fillColourFromName(videoObjectName),
+          });
+          videoObjects[videoObjectName] = null;
+        } else if (
+          typeof videoObjects[videoObjectName] === "number" &&
+          frameInSeconds - (videoObjects[videoObjectName] as number) >
+            minimumBarSeconds
+        ) {
+          seriesDataIntermediate.push({
+            x: videoObjectName,
+            y: [videoObjects[videoObjectName], frameInSeconds],
+            fillColor: fillColourFromName(videoObjectName),
+          });
+          videoObjects[videoObjectName] = frameInSeconds;
+        } else if (typeof videoObjects[videoObjectName] !== "number") {
+          videoObjects[videoObjectName] = frameInSeconds;
+        }
+      }
+    }
+    return seriesDataIntermediate;
+  }, [debouncedConfidenceThreshold]);
+
+  const series: Series = [{ data: seriesData }];
+  const options = optionsGenerator(goToVideoTime);
+  if (seriesData.length === 0) {
+    return (
+      <div style={{ textAlign: "center" }}>
+        No objects found. Try lowering the confidence threshold.
+      </div>
+    );
+  }
 
   return (
     <ReactApexChart
@@ -207,7 +204,7 @@ const VideoGraph = ({
       series={series}
       type="rangeBar"
       height={120}
-      width={"275%"}
+      width={"270%"}
     />
   );
 };
