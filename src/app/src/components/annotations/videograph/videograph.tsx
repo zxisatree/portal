@@ -9,11 +9,11 @@ interface AnalyticsBarProps {
   goToVideoTime: (frame: number) => void;
 }
 
-interface VideoObjects {
+export interface VideoObjects {
   [objectName: string]: number | null;
 }
 
-interface SeriesData {
+export interface SeriesData {
   x: string;
   y: Array<any>;
   fillColor?: string;
@@ -25,11 +25,11 @@ interface SingleSeries {
 
 type Series = Array<SingleSeries>;
 
-function frameToSeconds(frameNumber: string): number {
+export function frameToSeconds(frameNumber: string): number {
   return parseInt(frameNumber, 10) / 1000;
 }
 
-function fillColourFromName(name: string): string {
+export function fillColourFromName(name: string): string {
   return `#${(
     name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 255
   )
@@ -131,7 +131,6 @@ const VideoGraph = ({
     null
   );
   const [chartWidth, setChartWidth] = useState(window.innerWidth - 250);
-
   useEffect(() => {
     debounce(
       () => {
@@ -156,7 +155,9 @@ const VideoGraph = ({
     return () => window.removeEventListener("resize", debouncedResize);
   });
 
-  const seriesData: Array<SeriesData> = useMemo(() => {
+  const [uniqueObjectCount, seriesData] = useMemo<
+    [number, Array<SeriesData>]
+  >(() => {
     const seriesDataIntermediate: Array<SeriesData> = [];
     const videoObjects: VideoObjects = {};
     const frameNumbers = Object.keys(videoData.frames);
@@ -209,7 +210,7 @@ const VideoGraph = ({
         }
       }
     }
-    return seriesDataIntermediate;
+    return [Object.keys(videoObjects).length, seriesDataIntermediate];
   }, [debouncedConfidenceThreshold]);
 
   const series: Series = [{ data: seriesData }];
@@ -223,13 +224,15 @@ const VideoGraph = ({
   }
 
   return (
-    <ReactApexChart
-      options={options}
-      series={series}
-      type="rangeBar"
-      height={120}
-      width={chartWidth}
-    />
+    <div style={{ overflowY: "auto" }}>
+      <ReactApexChart
+        options={options}
+        series={series}
+        type="rangeBar"
+        height={50 * uniqueObjectCount}
+        width={chartWidth}
+      />
+    </div>
   );
 };
 export default VideoGraph;
