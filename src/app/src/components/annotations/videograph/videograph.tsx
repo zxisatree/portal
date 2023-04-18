@@ -121,6 +121,7 @@ const VideoGraph = ({
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
     null
   );
+  const [chartWidth, setChartWidth] = useState(window.innerWidth - 250);
 
   useEffect(() => {
     debounce(
@@ -131,6 +132,20 @@ const VideoGraph = ({
       setDebounceTimer
     )();
   }, [confidenceThreshold]);
+
+  useEffect(() => {
+    const debouncedResize = debounce(
+      () => {
+        setChartWidth(window.innerWidth - 250);
+      },
+      debounceTimer,
+      setDebounceTimer
+    );
+
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  });
 
   const seriesData: Array<SeriesData> = useMemo(() => {
     const seriesDataIntermediate: Array<SeriesData> = [];
@@ -204,7 +219,7 @@ const VideoGraph = ({
       series={series}
       type="rangeBar"
       height={120}
-      width={"270%"}
+      width={chartWidth}
     />
   );
 };
