@@ -111,6 +111,15 @@ const VideoGraph = ({
   confidenceThreshold,
   goToVideoTime,
 }: AnalyticsBarProps): JSX.Element => {
+  if (analyticsData.type === "image") {
+    return (
+      <div style={{ textAlign: "center" }}>
+        The video graph feature is for analysed videos only. Please select a
+        video first.
+      </div>
+    );
+  }
+
   const videoData: VideoData = analyticsData.data as VideoData;
   const minimumBarSeconds = 0.5;
   const intervalSize = videoData.fps * 0.2; // minimum interval size to group frames together

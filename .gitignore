@@ -32,3 +32,6 @@ yarn-error.log*
 
 # .vscode config
 /.vscode
+
+# downloaded models
+models

@@ -271,6 +271,14 @@
   margin-right: 30px !important;
 }
 
+.annotator-videograph-button {
+  position: absolute;
+  z-index: 100;
+  float: right;
+  left: calc(100% - 80px);
+  top: calc(100% - 40px);
+}
+
 .bp3-slider.opacity-slider {
   width: 90%;
   min-width: 140px;
