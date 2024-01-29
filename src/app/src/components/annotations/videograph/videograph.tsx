@@ -15,7 +15,7 @@ export interface VideoObjects {
 
 export interface SeriesData {
   x: string;
-  y: Array<any>;
+  y: Array<number>;
   fillColor?: string;
 }
 
@@ -35,6 +35,10 @@ export function fillColourFromName(name: string): string {
   )
     .toString(16)
     .padEnd(3, "0")}`;
+}
+
+function isNumber(obj: any): obj is number {
+  return typeof obj === "number";
 }
 
 function optionsGenerator(
@@ -184,28 +188,28 @@ const VideoGraph = ({
       }
 
       for (const videoObjectName of Object.keys(videoObjects)) {
+        const videoObject = videoObjects[videoObjectName];
         if (
-          typeof videoObjects[videoObjectName] === "number" &&
+          isNumber(videoObject) &&
           !currentFrameObjects.includes(videoObjectName)
         ) {
           seriesDataIntermediate.push({
             x: videoObjectName,
-            y: [videoObjects[videoObjectName], frameInSeconds],
+            y: [videoObject, frameInSeconds],
             fillColor: fillColourFromName(videoObjectName),
           });
           videoObjects[videoObjectName] = null;
         } else if (
-          typeof videoObjects[videoObjectName] === "number" &&
-          frameInSeconds - (videoObjects[videoObjectName] as number) >
-            minimumBarSeconds
+          isNumber(videoObject) &&
+          frameInSeconds - videoObject > minimumBarSeconds
         ) {
           seriesDataIntermediate.push({
             x: videoObjectName,
-            y: [videoObjects[videoObjectName], frameInSeconds],
+            y: [videoObject, frameInSeconds],
             fillColor: fillColourFromName(videoObjectName),
           });
           videoObjects[videoObjectName] = frameInSeconds;
-        } else if (typeof videoObjects[videoObjectName] !== "number") {
+        } else if (!isNumber(videoObject)) {
           videoObjects[videoObjectName] = frameInSeconds;
         }
       }
